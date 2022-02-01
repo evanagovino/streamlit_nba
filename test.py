@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.express as px
 import streamlit.components.v1 as components
 from jinja2 import Template
 
@@ -14,7 +15,7 @@ def return_value(temp_annual_df, player, column='ws'):
     return value, i-1
 
 def create_player_df(df, player, player_columns):
-    average_columns_key = ['bpm', 'obpm', 'dbpm', 'age', 'ts_pct', 'trb_pct', 'tov_pct', 'usg_pct', 'fg3_pct', 'fg2_pct', 'ft_pct', 'fg3a_per_fga_pct', 'fta_per_fga_pct']
+    average_columns_key = ['bpm', 'obpm', 'dbpm', 'age', 'ts_pct', 'trb_pct', 'tov_pct', 'usg_pct', 'fg3_pct', 'fg2_pct', 'ft_pct', 'fg3a_per_fga_pct', 'fta_per_fga_pct', 'ast_pct']
     total_columns_key = ['vorp', 'mp']
     average_columns = [i for i in player_columns if i in average_columns_key]
     total_columns = [i for i in player_columns if i in total_columns_key]
@@ -100,7 +101,7 @@ def metric_row(data):
             components.html(_build_metric(label, value, percentile))
 
 def metric(label, value, percentile):
-    components.html(_build_metric(label, value, percentile), height=90)
+    components.html(_build_metric(label, value, percentile), height=100)
 
 
 st.set_page_config(layout="wide")
@@ -152,13 +153,15 @@ metric_map = {
 'fg3_pct': '3P%',
 'fg2_pct': '2P%',
 'ft_pct': 'FT%',
+'fg_pct': 'FG%',
 'fg3a_per_fga_pct': '3PAr',
 'fta_per_fga_pct': 'FTr',
 'off_rtg': 'Offensive Rating',
 'def_rtg': 'Defensive Rating',
 'mov': 'Margin of Victory',
 'sos': 'Schedule Strength',
-'win_pct': 'Winning Percentage'
+'win_pct': 'Winning Percentage',
+'ast_pct': 'AST%'
 }
 
 #df = pd.read_csv('/Users/evanagovino/Downloads/test_df.csv')
@@ -199,7 +202,7 @@ def update_from_player():
 
 
 #CSS
-st.session_state.keep_player = False
+#st.session_state.keep_player = False
 team = st.sidebar.selectbox('Which team?', st.session_state.team_list, key='team', on_change=update_from_team)
 year = st.sidebar.selectbox('Which year?', st.session_state.year_list, key='year', on_change=update_from_year)
 print(team, year)
@@ -207,7 +210,8 @@ team_df = st.session_state.df[(st.session_state.df['team'] == team) & (st.sessio
 annual_df = st.session_state.df[(st.session_state.df['year'] == year)].sort_values('mp', ascending=False).reset_index(drop=True)
 player_list = team_df['player'].unique()
 player = st.sidebar.selectbox('Which player?', team_df['player'].unique(), on_change=update_from_player)
-print('keep player status', st.session_state.keep_player)
+st.session_state.view = st.sidebar.selectbox('Which view?', ['Team', 'Player'])
+#print('keep player status', st.session_state.keep_player)
 if 'player' in st.session_state:
     pass
     #print('Session State Player', st.session_state['player'])
@@ -216,19 +220,25 @@ else:
 if 'player' not in st.session_state:
     st.session_state['player'] = player
     print('Session State Initiated', st.session_state['player'])
+# if 'view' in st.session_state:
+#     print(st.session_state.view)
+# else:
+#     print('no view')
 #else:
 #    st.session_state['player'] = player
 #    print('Session State Changed', st.session_state['player'])
 
-hide_dataframe_row_index = """
-            <style>
-            .row_heading.level0 {display:none}
-            .blank {display:none}
-            </style>
-            """
+# hide_dataframe_row_index = """
+#             <style>
+#             .row_heading.level0 {display:none}
+#             .blank {display:none}
+#             </style>
+#             """
 
 title_alignment = """
 <style>
+.row_heading.level0 {display:none}
+            .blank {display:none}
 #atlanta-hawks {
   text-align: center
 }
@@ -241,7 +251,19 @@ title_alignment = """
   text-align: center
 }
 
-#team-comparisons {
+#team-comparison {
+  text-align: center
+}
+
+#value-comparison {
+  text-align: center
+}
+
+#player-comparison {
+  text-align: center
+}
+
+#shooting-comparison {
   text-align: center
 }
 
@@ -263,7 +285,7 @@ title_alignment = """
 </style>
 """
 
-st.markdown(hide_dataframe_row_index, unsafe_allow_html=True)
+#st.markdown(hide_dataframe_row_index, unsafe_allow_html=True)
 st.markdown(title_alignment, unsafe_allow_html=True)
 
 #team_df = df[(df['team'] == team) & (df['year'] == year)].sort_values('mp', ascending=False).reset_index(drop=True)
@@ -271,297 +293,656 @@ st.markdown(title_alignment, unsafe_allow_html=True)
 #player = st.sidebar.selectbox('Which player?', team_df['player'].unique())
 #player_two = st.sidebar.selectbox('Which player?', st.session_state.player_list, key='xxx')
 
-advanced_data = st.sidebar.checkbox('Show Advanced Metrics', value=True)
-shooting_data = st.sidebar.checkbox('Show Shooting Metrics', value=True)
-st.title(team_map[team])
-st.header('League Comparisons')
+#advanced_data = st.sidebar.checkbox('Show Advanced Metrics', value=True)  
+#shooting_data = st.sidebar.checkbox('Show Shooting Metrics', value=True)
 
 original_columns = ['vorp', 'bpm','obpm', 'dbpm']
 original_columns_league = ['win_pct','off_rtg', 'def_rtg', 'mov']
-advanced_columns = ['ts_pct', 'trb_pct', 'tov_pct', 'usg_pct']
+advanced_columns = ['ts_pct', 'trb_pct', 'usg_pct', 'ast_pct', 'tov_pct']
 advanced_columns_league = ['ts_pct', 'tov_pct', 'sos']
 shooting_columns = ['fg3_pct', 'fg2_pct', 'ft_pct', 'fg3a_per_fga_pct', 'fta_per_fga_pct']
 shooting_columns_league = ['fg3_pct', 'ft_pct', 'fg3a_per_fga_pct', 'fta_per_fga_pct']
 global_columns = original_columns.copy()
-if advanced_data:
-    for column in advanced_columns:
-        global_columns.append(column)
-if shooting_data:
-    for column in shooting_columns:
-        global_columns.append(column)
-
-annual_league_df = st.session_state.league_df[st.session_state.league_df['year'] == year].sort_values('win_pct', ascending=False).reset_index(drop=True)
-
-with st.expander('Show league table'):
-    st.dataframe(annual_league_df.style.apply(highlight_col_team, team=team, axis=1))
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.subheader('Basic Metrics')
-    for column in original_columns_league:
-        position = annual_league_df[annual_league_df['team'] == team].index.values[0]
-        value = annual_league_df[column][position]
-        rank = annual_league_df[column].rank(ascending=False).astype('int').values[position]
-        if column == 'def_rtg':
-            rank = annual_league_df[column].rank().astype('int').values[position]
-        #st.write(f'**{metric_map[column]}**:',annual_league_df[column].rank(ascending=False).astype('int').values[position], 'of 30 in league')
-        if column == 'win_pct':
-            wins = annual_league_df['wins'][position]
-            losses = annual_league_df['losses'][position]
-            metric('Record', f'{wins}-{losses}', f'{rank} / {len(annual_league_df)} Teams')
-        else:
-            metric(metric_map[column], value, f'{rank} / {len(annual_league_df)} Teams')
-if advanced_data:
-    with col2:
-        st.subheader('Advanced Metrics')
-        for column in advanced_columns_league:
-            position = annual_league_df[annual_league_df['team'] == team].index.values[0]
-            value = annual_league_df[column][position]
-            rank = annual_league_df[column].rank(ascending=False).astype('int').values[position]
-            if column == 'tov_pct':
-                rank = annual_league_df[column].rank().astype('int').values[position]
-            #st.write(f'{metric_map[column]}:',annual_league_df[column].rank(ascending=False).astype('int').values[position], 'of 30 in league')
-            metric(metric_map[column], value, f'{rank} / {len(annual_league_df)} Teams')
-if shooting_data:
-    with col3:
-        st.subheader('Shooting Metrics')
-        for column in shooting_columns_league:
-            position = annual_league_df[annual_league_df['team'] == team].index.values[0]
-            value = annual_league_df[column][position]
-            rank = annual_league_df[column].rank(ascending=False).astype('int').values[position]
-            #st.write(f'{metric_map[column]}:',annual_league_df[column].rank(ascending=False).astype('int').values[position], 'of 30 in league')
-            metric(metric_map[column], value, f'{rank} / {len(annual_league_df)} Teams')
-
+#if advanced_data:
+for column in advanced_columns:
+    global_columns.append(column)
+#if shooting_data:
+for column in shooting_columns:
+    global_columns.append(column)
 player_columns = ['player', 'team','year','age', 'mp'] + global_columns
 
-st.title(st.session_state.player)
+#x_axis = st.sidebar.selectbox('Metric A', [i for i in global_columns])
+#y_axis = st.sidebar.selectbox('Metric B', [i for i in global_columns])
 
-st.header('League Comparisons')
-
-with st.expander('Show league table'):
-    st.dataframe(annual_df[player_columns].style.apply(highlight_col_player, player=st.session_state.player, axis=1))
-
-#player_df = st.session_state.df[(st.session_state.df['player'] == st.session_state.player)][player_columns].sort_values('year', ascending=False).reset_index(drop=True)
-player_df = create_player_df(st.session_state.df, st.session_state.player, player_columns)
-#st.session_state.df[(st.session_state.df['player'] == st.session_state.player)][player_columns].sort_values('year', ascending=False).reset_index(drop=True)
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.subheader('Basic Metrics')
-    for column in original_columns:
-            value, percentile = return_value(annual_df, st.session_state.player, column)
-            #status = evaluate_percentile(percentile)
+def get_values(annual_league_df, column, comp_type='team_comparison'):
+    if comp_type == 'team_comparison':
+        position = annual_league_df[annual_league_df['team'] == st.session_state.team].index.values[0]
+    else:
+        position = annual_league_df[annual_league_df['player'] == st.session_state.player].index.values[0]
+    value = annual_league_df[column][position]
+    rank = annual_league_df[column].rank(ascending=False).astype('int').values[position]
+    for percentile in range(100):
+        if annual_league_df[column].astype('float').quantile(q=percentile/100) > value:
+            break
+    percentile -= 1
+    #value, percentile = return_value(annual_df, st.session_state.player, column)
+    if column == 'def_rtg':
+        rank = annual_league_df[column].rank().astype('int').values[position]
+        #st.write(f'**{metric_map[column]}**:',annual_league_df[column].rank(ascending=False).astype('int').values[position], 'of 30 in league')
+    if column == 'win_pct':
+        wins = annual_league_df['wins'][position]
+        losses = annual_league_df['losses'][position]
+        if comp_type == 'team_comparison':
+            metric('Record', f'{wins}-{losses}', f'{rank} / {len(annual_league_df)} Teams')
+        elif comp_type == 'team_player_comparison':
+            metric('Record', f'{wins}-{losses}', f'{rank} / {len(annual_league_df)} Players')
+        elif comp_type == 'season_comparison':
+            metric('Record', f'{wins}-{losses}', f'{rank} / {len(annual_league_df)} Seasons')
+        elif comp_type == 'league_comparison':
             metric(metric_map[column], value, f'{percentile} % League')
+    else:
+        if comp_type == 'team_comparison':
+            metric(metric_map[column], value, f'{rank} / {len(annual_league_df)} Teams')
+        elif comp_type == 'team_player_comparison':
+            metric(metric_map[column], value, f'{rank} / {len(annual_league_df)} Players')
+        elif comp_type == 'season_comparison':
+            metric(metric_map[column], value, f'{rank} / {len(annual_league_df)} Seasons')
+        elif comp_type == 'league_comparison':
+            metric(metric_map[column], value, f'{percentile} % League')
+
+if st.session_state.view == 'Team':
+
+    st.title(team_map[team])
+    st.header('Team Comparison')
+
+    annual_league_df = st.session_state.league_df[st.session_state.league_df['year'] == year].sort_values('win_pct', ascending=False).reset_index(drop=True)
+    annual_league_df['color'] = [2 if i == team else 1 for i in annual_league_df['team']]
     
-if advanced_data:
+    # col1, col2, col3 = st.columns(3)
+
+    # with col1:
+    #     st.subheader('Basic Metrics')
+    #     for column in original_columns_league:
+    #         position = annual_league_df[annual_league_df['team'] == team].index.values[0]
+    #         value = annual_league_df[column][position]
+    #         rank = annual_league_df[column].rank(ascending=False).astype('int').values[position]
+    #         if column == 'def_rtg':
+    #             rank = annual_league_df[column].rank().astype('int').values[position]
+    #         #st.write(f'**{metric_map[column]}**:',annual_league_df[column].rank(ascending=False).astype('int').values[position], 'of 30 in league')
+    #         if column == 'win_pct':
+    #             wins = annual_league_df['wins'][position]
+    #             losses = annual_league_df['losses'][position]
+    #             metric('Record', f'{wins}-{losses}', f'{rank} / {len(annual_league_df)} Teams')
+    #         else:
+    #             metric(metric_map[column], value, f'{rank} / {len(annual_league_df)} Teams')
+    # if advanced_data:
+    #     with col2:
+    #         st.subheader('Advanced Metrics')
+    #         for column in advanced_columns_league:
+    #             position = annual_league_df[annual_league_df['team'] == team].index.values[0]
+    #             value = annual_league_df[column][position]
+    #             rank = annual_league_df[column].rank(ascending=False).astype('int').values[position]
+    #             if column == 'tov_pct':
+    #                 rank = annual_league_df[column].rank().astype('int').values[position]
+    #             #st.write(f'{metric_map[column]}:',annual_league_df[column].rank(ascending=False).astype('int').values[position], 'of 30 in league')
+    #             metric(metric_map[column], value, f'{rank} / {len(annual_league_df)} Teams')
+    # if shooting_data:
+    #     with col3:
+    #         st.subheader('Shooting Metrics')
+    #         for column in shooting_columns_league:
+    #             position = annual_league_df[annual_league_df['team'] == team].index.values[0]
+    #             value = annual_league_df[column][position]
+    #             rank = annual_league_df[column].rank(ascending=False).astype('int').values[position]
+    #             #st.write(f'{metric_map[column]}:',annual_league_df[column].rank(ascending=False).astype('int').values[position], 'of 30 in league')
+    #             metric(metric_map[column], value, f'{rank} / {len(annual_league_df)} Teams')
+
+
+
+
+    fig = px.scatter(
+        data_frame=annual_league_df,
+        #x=x_axis,
+        #y=y_axis,
+        x='off_rtg',
+        y='def_rtg',
+        color='color',
+        hover_name='team',
+        labels={'off_rtg': 'Offensive Rating',
+                'def_rtg': 'Defensive Rating'})
+    fig.update(layout_coloraxis_showscale=False)
+    fig.update_traces(marker=dict(size=20))
+    fig.update_yaxes(autorange="reversed")
+    st.plotly_chart(fig, use_container_width=True)
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        get_values(annual_league_df, 'win_pct')
     with col2:
-        st.subheader('Advanced Metrics')
-        for column in advanced_columns:
-            value, percentile = return_value(annual_df, st.session_state.player, column)
-            #status = evaluate_percentile(percentile)
-            metric(metric_map[column], value, f'{percentile} % League')
-            #st.write(f'{metric_map[column]}:',return_value(annual_df, player, column), 'percentile')
-
-if shooting_data:
+        get_values(annual_league_df, 'off_rtg')
     with col3:
-        st.subheader('Shooting Metrics')
-        for column in shooting_columns:
-            value, percentile = return_value(annual_df, st.session_state.player, column)
-            #status = evaluate_percentile(percentile)
-            metric(metric_map[column], value, f'{percentile} % League')
-            #st.write(f'{metric_map[column]}:',return_value(annual_df, player, column), 'percentile')
-
-with st.expander('Show visualizations'):
+        get_values(annual_league_df, 'def_rtg')
+    with col4:
+        get_values(annual_league_df, 'mov')
+    st.header('Shooting Comparison')
+    temp_df = annual_league_df.copy()
+    temp_df.index = temp_df['team']
+    temp_df = temp_df[['fg_pct', 'fg3_pct', 'ft_pct', 'fta_per_fga_pct', 'fg3a_per_fga_pct', 'ts_pct']].stack().reset_index()
+    temp_df.columns = ['team', 'metric', 'value']
+    temp_df['color'] = [2 if i == team else 1 for i in temp_df['team']]
+    temp_df['metric'] = [metric_map[i] for i in temp_df['metric']]
+    fig = px.strip(
+        data_frame=temp_df,
+        #x=x_axis,
+        #y=y_axis,
+        y='metric',
+        x='value',
+        color='color',
+        hover_name='team',
+        stripmode='overlay',
+        orientation='h'
+        #labels={x_axis: metric_map[x_axis],
+        #        y_axis: metric_map[y_axis]}
+                )
+    fig.update(layout_coloraxis_showscale=False)
+    fig.update(layout_showlegend=False)
+    fig.update_layout(yaxis=None)
+    fig.update_traces(marker=dict(size=20))
+    st.plotly_chart(fig, use_container_width=True)
+    #['fg3_pct', 'ft_pct', 'fg3a_per_fga_pct', 'fta_per_fga_pct']
     col1, col2, col3 = st.columns(3)
     with col1:
-        fig, ax = plt.subplots(len(original_columns), 1)
-        for position, column in enumerate(original_columns):
-            ax[position].hist(annual_df[column], bins=20)
-            ax[position].axvline(annual_df[annual_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
-            ax[position].title.set_text(metric_map[column])
-            ax[position].get_yaxis().set_visible(False)
-        fig.tight_layout()
-        col1.pyplot(fig)
-    if advanced_data:
-        with col2:
-            fig, ax = plt.subplots(len(advanced_columns), 1)
-            for position, column in enumerate(advanced_columns):
-                ax[position].hist(annual_df[column], bins=20)
-                ax[position].axvline(annual_df[annual_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
-                ax[position].title.set_text(metric_map[column])
-                ax[position].get_yaxis().set_visible(False)
-            fig.tight_layout()
-            col2.pyplot(fig)
-    if shooting_data:
-        with col3:
-            fig, ax = plt.subplots(len(shooting_columns), 1)
-            for position, column in enumerate(shooting_columns):
-                ax[position].hist(annual_df[column], bins=20)
-                ax[position].axvline(annual_df[annual_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
-                ax[position].title.set_text(metric_map[column])
-                ax[position].get_yaxis().set_visible(False)
-            fig.tight_layout()
-            col3.pyplot(fig)
+        get_values(annual_league_df, 'ts_pct')
+        get_values(annual_league_df, 'fg_pct')
+        
+    with col2:
+        get_values(annual_league_df, 'fg3_pct')
+        get_values(annual_league_df, 'ft_pct')
+    with col3:
+        get_values(annual_league_df, 'fta_per_fga_pct')
+        get_values(annual_league_df, 'fg3a_per_fga_pct')
+        
 
-st.header('Historical Comparisons')
+    #with st.expander('Show league table'):
+    #    st.dataframe(annual_league_df.style.apply(highlight_col_team, team=team, axis=1))
 
-with st.expander('Show historical table'):
-    st.dataframe(player_df.style.apply(highlight_col_year, year=year, axis=1))
+    st.header('Player Comparison')
 
-col1, col2, col3 = st.columns(3)
+    team_df['color'] = [2 if i == player else 1 for i in team_df['player']]
 
-with col1:
+    #fig, ax = plt.subplots(figsize=(10,10))
+    fig = px.scatter(
+        data_frame=team_df[team_df['mp'] >= annual_df['mp'].quantile(0.3)],
+        x='obpm',
+        y='dbpm',
+        color='color',
+        size='mp',
+        hover_name='player',
+        hover_data=['team'],
+        labels={'obpm': metric_map['obpm'],
+                'dbpm': metric_map['dbpm']})
+    fig.update(layout_coloraxis_showscale=False)
+    #ax.scatter(annual_df['obpm'], annual_df['dbpm'], c=annual_df['color'])
+    #ax.set_xlabel('Offensive Rating')
+    #ax.set_ylabel('Defensive Rating')
+    #plt.subplots_adjust(bottom=0.8, top=0.9, right=0.9)
+    #ax.margins(x=0.1, y=0.05)
+    #fig.tight_layout()
+    st.plotly_chart(fig)
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        get_values(team_df, 'vorp', comp_type='team_player_comparison')
+    with col2:
+        get_values(team_df, 'bpm', comp_type='team_player_comparison')
+    with col3:
+        get_values(team_df, 'obpm', comp_type='team_player_comparison')
+    with col4:
+        get_values(team_df, 'dbpm', comp_type='team_player_comparison')
+
+    # fig = px.scatter(
+    #     data_frame=team_df[team_df['mp'] >= annual_df['mp'].quantile(0.3)],
+    #     x='obpm',
+    #     y='dbpm',
+    #     color='color',
+    #     size='mp',
+    #     hover_name='player',
+    #     hover_data=['team'],
+    #     labels={x_axis: metric_map['obpm'],
+    #             y_axis: metric_map['dbpm']})
+    # fig.update(layout_coloraxis_showscale=False)
+    # #ax.scatter(annual_df['obpm'], annual_df['dbpm'], c=annual_df['color'])
+    # #ax.set_xlabel('Offensive Rating')
+    # #ax.set_ylabel('Defensive Rating')
+    # #plt.subplots_adjust(bottom=0.8, top=0.9, right=0.9)
+    # #ax.margins(x=0.1, y=0.05)
+    # #fig.tight_layout()
+    # st.plotly_chart(fig)
+
+    st.header('Shooting Comparison')
+    temp_df = team_df.copy()
+    temp_df.index = temp_df['player']
+    #temp_df = temp_df[['fg_pct', 'fg3_pct', 'ft_pct', 'fta_per_fga_pct', 'fg3a_per_fga_pct', 'ts_pct']].stack().reset_index()
+    temp_df = temp_df[['fg3_pct', 'ft_pct', 'fta_per_fga_pct', 'fg3a_per_fga_pct', 'ts_pct']].stack().reset_index()
+    temp_df.columns = ['player', 'metric', 'value']
+    temp_df['color'] = [2 if i == player else 1 for i in temp_df['player']]
+    temp_df['metric'] = [metric_map[i] for i in temp_df['metric']]
+    fig = px.strip(
+        data_frame=temp_df,
+        #x=x_axis,
+        #y=y_axis,
+        y='metric',
+        x='value',
+        color='color',
+        hover_name='player',
+        stripmode='overlay',
+        orientation='h'
+        #labels={x_axis: metric_map[x_axis],
+        #        y_axis: metric_map[y_axis]}
+                )
+    fig.update(layout_coloraxis_showscale=False)
+    fig.update(layout_showlegend=False)
+    fig.update_layout(yaxis=None)
+    fig.update_traces(marker=dict(size=20))
+    st.plotly_chart(fig, use_container_width=True)
+    #['fg3_pct', 'ft_pct', 'fg3a_per_fga_pct', 'fta_per_fga_pct']
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        get_values(annual_league_df, 'ts_pct')
+        #get_values(annual_league_df, 'fg_pct')
+        
+    with col2:
+        get_values(annual_league_df, 'fg3_pct')
+        get_values(annual_league_df, 'ft_pct')
+    with col3:
+        get_values(annual_league_df, 'fta_per_fga_pct')
+        get_values(annual_league_df, 'fg3a_per_fga_pct')
+
+    # col1, col2, col3 = st.columns(3)
+
+    # position = team_df[team_df['player'] == st.session_state.player].index.values[0]
+
+    # with col1:
+    #     st.subheader('Basic Metrics')
+    #     for column in original_columns:
+    #         position = team_df[team_df['player'] == st.session_state.player].index.values[0]
+    #         value = team_df[column][position]
+    #         rank = team_df[column].rank(ascending=False).astype('int').values[position]
+    #         metric(metric_map[column], value, f'{rank} / {len(team_df)} Players')
+    #         #st.write(f'{metric_map[column]}:',team_df[column].rank(ascending=False).astype('int').values[position], f'of {len(team_df)} on team')
+        
+    # if advanced_data:
+    #     with col2:
+    #         st.subheader('Advanced Metrics')
+    #         for column in advanced_columns:
+    #             position = team_df[team_df['player'] == st.session_state.player].index.values[0]
+    #             value = team_df[column][position]
+    #             rank = team_df[column].rank(ascending=False).astype('int').values[position]
+    #             metric(metric_map[column], value, f'{rank} / {len(team_df)} Players')
+    #             #st.write(f'{metric_map[column]}:',team_df[column].rank(ascending=False).astype('int').values[position], f'of {len(team_df)} on team')
+
+    # if shooting_data:
+    #     with col3:
+    #         st.subheader('Shooting Metrics')
+    #         for column in shooting_columns:
+    #             position = team_df[team_df['player'] == st.session_state.player].index.values[0]
+    #             value = team_df[column][position]
+    #             rank = team_df[column].rank(ascending=False).astype('int').values[position]
+    #             metric(metric_map[column], value, f'{rank} / {len(team_df)} Players')
+    #             #st.write(f'{metric_map[column]}:',team_df[column].rank(ascending=False).astype('int').values[position], f'of {len(team_df)} on team')
+
+    st.header('Value Comparison')
+
+    team_df['color'] = [2 if i == player else 1 for i in team_df['player']]
+
+    fig = px.pie(
+        data_frame=team_df,
+        #x=x_axis,
+        #y=y_axis,
+        values='vorp',
+        names='player'
+        #labels={x_axis: metric_map[x_axis],
+        #        y_axis: metric_map[y_axis]}
+                )
+    #fig.update(layout_coloraxis_showscale=False)
+    #fig.update(layout_showlegend=False)
+    #fig.update_layout(yaxis=None)
+    #fig.update_traces(marker=dict(size=20))
+    st.plotly_chart(fig, use_container_width=True)
+
+    # with st.expander('Show team table'):
+    #     st.dataframe(team_df[player_columns].style.apply(highlight_col_player, player=st.session_state.player, axis=1))
+
+    # with st.expander('Show visualizations'):
+    #     col1, col2, col3 = st.columns(3)
+    #     with col1:
+    #         fig, ax = plt.subplots(len(original_columns), 1)
+    #         for position, column in enumerate(original_columns):
+    #             ax[position].hist(team_df[column], bins=20)
+    #             ax[position].axvline(team_df[team_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
+    #             ax[position].title.set_text(metric_map[column])
+    #             ax[position].get_yaxis().set_visible(False)
+    #         fig.tight_layout()
+    #         col1.pyplot(fig)
+    #     if advanced_data:
+    #         with col2:
+    #             fig, ax = plt.subplots(len(advanced_columns), 1)
+    #             for position, column in enumerate(advanced_columns):
+    #                 ax[position].hist(team_df[column], bins=20)
+    #                 ax[position].axvline(team_df[team_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
+    #                 ax[position].title.set_text(metric_map[column])
+    #                 ax[position].get_yaxis().set_visible(False)
+    #             fig.tight_layout()
+    #             col2.pyplot(fig)
+    #     if shooting_data:
+    #         with col3:
+    #             fig, ax = plt.subplots(len(shooting_columns), 1)
+    #             for position, column in enumerate(shooting_columns):
+    #                 ax[position].hist(team_df[column], bins=20)
+    #                 ax[position].axvline(team_df[team_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
+    #                 ax[position].title.set_text(metric_map[column])
+    #                 ax[position].get_yaxis().set_visible(False)
+    #             fig.tight_layout()
+    #             col3.pyplot(fig)
+
+elif st.session_state.view == 'Player':
+
+    st.title(st.session_state.player)
+
+    st.header('League Comparisons')
+
+    #with st.expander('Show league table'):
+    #    st.dataframe(annual_df[player_columns].style.apply(highlight_col_player, player=st.session_state.player, axis=1))
+
+    player_df = st.session_state.df[(st.session_state.df['player'] == st.session_state.player)][player_columns].sort_values('year', ascending=False).reset_index(drop=True)
+    #st.session_state.df[(st.session_state.df['player'] == st.session_state.player)][player_columns].sort_values('year', ascending=False).reset_index(drop=True)
+
+    # col1, col2, col3 = st.columns(3)
+
+    # with col1:
+    #     st.subheader('Basic Metrics')
+    #     for column in original_columns:
+    #             value, percentile = return_value(annual_df, st.session_state.player, column)
+    #             #status = evaluate_percentile(percentile)
+    #             metric(metric_map[column], value, f'{percentile} % League')
+        
+    # if advanced_data:
+    #     with col2:
+    #         st.subheader('Advanced Metrics')
+    #         for column in advanced_columns:
+    #             value, percentile = return_value(annual_df, st.session_state.player, column)
+    #             #status = evaluate_percentile(percentile)
+    #             metric(metric_map[column], value, f'{percentile} % League')
+    #             #st.write(f'{metric_map[column]}:',return_value(annual_df, player, column), 'percentile')
+
+    # if shooting_data:
+    #     with col3:
+    #         st.subheader('Shooting Metrics')
+    #         for column in shooting_columns:
+    #             value, percentile = return_value(annual_df, st.session_state.player, column)
+    #             #status = evaluate_percentile(percentile)
+    #             metric(metric_map[column], value, f'{percentile} % League')
+    #             #st.write(f'{metric_map[column]}:',return_value(annual_df, player, column), 'percentile')
+
+    annual_df['color'] = [2 if i == player else 1 for i in annual_df['player']]
+
+    fig = px.scatter(
+        data_frame=annual_df[annual_df['mp'] >= annual_df['mp'].quantile(0.3)],
+        #x=x_axis,
+        #y=y_axis,
+        x='obpm',
+        y='dbpm',
+        color='color',
+        opacity=0.5,
+        size='mp',
+        hover_name='player',
+        labels={'obpm': 'Offensive BPM',
+                'dbpm': 'Defensive BPM'})
+    fig.update(layout_coloraxis_showscale=False)
+    #fig.update_traces(marker=dict(size=20))
+    st.plotly_chart(fig, use_container_width=True)
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        get_values(annual_df, 'vorp', comp_type='league_comparison')
+    with col2:
+        get_values(annual_df, 'bpm', comp_type='league_comparison')
+    with col3:
+        get_values(annual_df, 'obpm', comp_type='league_comparison')
+    with col4:
+        get_values(annual_df, 'dbpm', comp_type='league_comparison')
+
+    # with st.expander('Show visualizations'):
+    #     col1, col2, col3 = st.columns(3)
+    #     with col1:
+    #         fig, ax = plt.subplots(len(original_columns), 1)
+    #         for position, column in enumerate(original_columns):
+    #             ax[position].hist(annual_df[column], bins=20)
+    #             ax[position].axvline(annual_df[annual_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
+    #             ax[position].title.set_text(metric_map[column])
+    #             ax[position].get_yaxis().set_visible(False)
+    #         fig.tight_layout()
+    #         col1.pyplot(fig)
+    #     if advanced_data:
+    #         with col2:
+    #             fig, ax = plt.subplots(len(advanced_columns), 1)
+    #             for position, column in enumerate(advanced_columns):
+    #                 ax[position].hist(annual_df[column], bins=20)
+    #                 ax[position].axvline(annual_df[annual_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
+    #                 ax[position].title.set_text(metric_map[column])
+    #                 ax[position].get_yaxis().set_visible(False)
+    #             fig.tight_layout()
+    #             col2.pyplot(fig)
+    #     if shooting_data:
+    #         with col3:
+    #             fig, ax = plt.subplots(len(shooting_columns), 1)
+    #             for position, column in enumerate(shooting_columns):
+    #                 ax[position].hist(annual_df[column], bins=20)
+    #                 ax[position].axvline(annual_df[annual_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
+    #                 ax[position].title.set_text(metric_map[column])
+    #                 ax[position].get_yaxis().set_visible(False)
+    #             fig.tight_layout()
+    #             col3.pyplot(fig)
+    st.subheader('Shooting Metrics')
+    temp_df = annual_df[annual_df['mp'] >= annual_df['mp'].quantile(0.3)]
+    temp_df.index = temp_df['player']
+    #temp_df = temp_df[['fg_pct', 'fg3_pct', 'ft_pct', 'fta_per_fga_pct', 'fg3a_per_fga_pct', 'ts_pct']].stack().reset_index()
+    temp_df = temp_df[['fg2_pct','fg3_pct', 'ft_pct', 'fta_per_fga_pct', 'fg3a_per_fga_pct', 'ts_pct']].stack().reset_index()
+    temp_df.columns = ['player', 'metric', 'value']
+    temp_df['color'] = [2 if i == player else 1 for i in temp_df['player']]
+    temp_df['metric'] = [metric_map[i] for i in temp_df['metric']]
+    fig = px.strip(
+        data_frame=temp_df,
+        #x=x_axis,
+        #y=y_axis,
+        y='metric',
+        x='value',
+        color='color',
+        hover_name='player',
+        stripmode='overlay',
+        orientation='h'
+        #labels={x_axis: metric_map[x_axis],
+        #        y_axis: metric_map[y_axis]}
+                )
+    fig.update(layout_coloraxis_showscale=False)
+    fig.update(layout_showlegend=False)
+    fig.update_layout(yaxis=None)
+    fig.update_traces(marker=dict(size=20))
+    st.plotly_chart(fig, use_container_width=True)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        get_values(annual_df, 'ts_pct', comp_type='league_comparison')
+        #get_values(annual_df, 'fg_pct', comp_type='league_comparison')
+        
+    with col2:
+        get_values(annual_df, 'fg3_pct', comp_type='league_comparison')
+        get_values(annual_df, 'ft_pct', comp_type='league_comparison')
+    with col3:
+        get_values(annual_df, 'fta_per_fga_pct', comp_type='league_comparison')
+        get_values(annual_df, 'fg3a_per_fga_pct', comp_type='league_comparison')
+
+    st.header('Historical Comparisons')
+
+    # with st.expander('Show historical table'):
+    #     st.dataframe(player_df.style.apply(highlight_col_year, year=year, axis=1))
+
+    # col1, col2, col3 = st.columns(3)
+
+    # with col1:
+    #     st.subheader('Basic Metrics')
+    #     for column in original_columns:
+    #         position = player_df[player_df['year'] == year].index.values[0]
+    #         value = player_df[column][position]
+    #         rank = player_df[column].rank(ascending=False).astype('int').values[position]
+    #         #st.write(f'{metric_map[column]}:',player_df[column].rank(ascending=False).astype('int').values[position], f'of {len(player_df)} in career')
+    #         metric(metric_map[column], value, f'{rank} / {len(player_df)} Seasons')
+    # if advanced_data:
+    #     with col2:
+    #         st.subheader('Advanced Metrics')
+    #         for column in advanced_columns:
+    #             position = player_df[player_df['year'] == year].index.values[0]
+    #             value = player_df[column][position]
+    #             rank = player_df[column].rank(ascending=False).astype('int').values[position]
+    #             metric(metric_map[column], value, f'{rank} / {len(player_df)} Seasons')
+    #             #st.write(f'{metric_map[column]}:', player_df[column].rank(ascending=False).astype('int').values[position], f'of {len(player_df)} in career')
+    # if shooting_data:
+    #     with col3:
+    #         st.subheader('Shooting Metrics')
+    #         for column in shooting_columns:
+    #             position = player_df[player_df['year'] == year].index.values[0]
+    #             value = player_df[column][position]
+    #             rank = player_df[column].rank(ascending=False).astype('int').values[position]
+    #             metric(metric_map[column], value, f'{rank} / {len(player_df)} Seasons')
+    #             #st.write(f'{metric_map[column]}:', player_df[column].rank(ascending=False).astype('int').values[position], f'of {len(player_df)} in career')
+
     st.subheader('Basic Metrics')
-    for column in original_columns:
-        position = player_df[player_df['year'] == year].index.values[0]
-        value = player_df[column][position]
-        rank = player_df[column].rank(ascending=False).astype('int').values[position]
-        #st.write(f'{metric_map[column]}:',player_df[column].rank(ascending=False).astype('int').values[position], f'of {len(player_df)} in career')
-        metric(metric_map[column], value, f'{rank} / {len(player_df)} Seasons')
-if advanced_data:
-    with col2:
-        st.subheader('Advanced Metrics')
-        for column in advanced_columns:
-            position = player_df[player_df['year'] == year].index.values[0]
-            value = player_df[column][position]
-            rank = player_df[column].rank(ascending=False).astype('int').values[position]
-            metric(metric_map[column], value, f'{rank} / {len(player_df)} Seasons')
-            #st.write(f'{metric_map[column]}:', player_df[column].rank(ascending=False).astype('int').values[position], f'of {len(player_df)} in career')
-if shooting_data:
-    with col3:
-        st.subheader('Shooting Metrics')
-        for column in shooting_columns:
-            position = player_df[player_df['year'] == year].index.values[0]
-            value = player_df[column][position]
-            rank = player_df[column].rank(ascending=False).astype('int').values[position]
-            metric(metric_map[column], value, f'{rank} / {len(player_df)} Seasons')
-            #st.write(f'{metric_map[column]}:', player_df[column].rank(ascending=False).astype('int').values[position], f'of {len(player_df)} in career')
+    temp_df = player_df.copy()
+    temp_df.index = temp_df['year']
+    #temp_df = temp_df[['fg_pct', 'fg3_pct', 'ft_pct', 'fta_per_fga_pct', 'fg3a_per_fga_pct', 'ts_pct']].stack().reset_index()
+    temp_df = temp_df[['vorp', 'bpm', 'obpm', 'dbpm']].stack().reset_index()
+    temp_df.columns = ['year', 'metric', 'value']
+    temp_df['color'] = [2 if i == year else 1 for i in temp_df['year']]
+    temp_df['metric'] = [metric_map[i] for i in temp_df['metric']]
+    fig = px.strip(
+        data_frame=temp_df,
+        #x=x_axis,
+        #y=y_axis,
+        y='metric',
+        x='value',
+        color='color',
+        hover_name='year',
+        stripmode='overlay',
+        orientation='h'
+        #labels={x_axis: metric_map[x_axis],
+        #        y_axis: metric_map[y_axis]}
+                )
+    fig.update(layout_coloraxis_showscale=False)
+    fig.update(layout_showlegend=False)
+    fig.update_layout(yaxis=None)
+    fig.update_traces(marker=dict(size=20))
+    st.plotly_chart(fig, use_container_width=True)
+    col1, col2, col3, col4 = st.columns(4)
 
-with st.expander('Show visualizations'):
+    with col1:
+        get_values(player_df, 'vorp', comp_type='season_comparison')
+    with col2:
+        get_values(player_df, 'bpm', comp_type='season_comparison')
+    with col3:
+        get_values(player_df, 'obpm', comp_type='season_comparison')
+    with col4:
+        get_values(player_df, 'dbpm', comp_type='season_comparison')
+    st.subheader('Shooting Metrics')
+    temp_df = player_df.copy()
+    temp_df.index = temp_df['year']
+    #temp_df = temp_df[['fg_pct', 'fg3_pct', 'ft_pct', 'fta_per_fga_pct', 'fg3a_per_fga_pct', 'ts_pct']].stack().reset_index()
+    temp_df = temp_df[['fg2_pct','fg3_pct', 'ft_pct', 'fta_per_fga_pct', 'fg3a_per_fga_pct', 'ts_pct']].stack().reset_index()
+    temp_df.columns = ['year', 'metric', 'value']
+    temp_df['color'] = [2 if i == year else 1 for i in temp_df['year']]
+    temp_df['metric'] = [metric_map[i] for i in temp_df['metric']]
+    fig = px.strip(
+        data_frame=temp_df,
+        #x=x_axis,
+        #y=y_axis,
+        y='metric',
+        x='value',
+        color='color',
+        hover_name='year',
+        stripmode='overlay',
+        orientation='h'
+        #labels={x_axis: metric_map[x_axis],
+        #        y_axis: metric_map[y_axis]}
+                )
+    fig.update(layout_coloraxis_showscale=False)
+    fig.update(layout_showlegend=False)
+    fig.update_layout(yaxis=None)
+    fig.update_traces(marker=dict(size=20))
+    st.plotly_chart(fig, use_container_width=True)
+
     col1, col2, col3 = st.columns(3)
     with col1:
-        fig, ax = plt.subplots(len(original_columns), 1)
-        for position, column in enumerate(original_columns):
-            ax[position].bar(player_df['year'], player_df[column], color= 'blue')
-            ax[position].bar(player_df[player_df['year'] == year]['year'], player_df[player_df['year'] == year][column], color = 'red')
-            ax[position].set_title(metric_map[column])
-            #ax[position].get_yaxis().set_visible(False)
-        fig.tight_layout()
-        col1.pyplot(fig)
-        fig, ax = plt.subplots(len(original_columns), 1)
-        for position, column in enumerate(original_columns):
-            ax[position].boxplot(player_df[column], vert=False)
-            ax[position].axvline(player_df[player_df['year'] == year][column].values[0], color='k', linestyle='dashed', linewidth=1)
-            ax[position].set_title(metric_map[column])
-            ax[position].get_yaxis().set_visible(False)
-        fig.tight_layout()
-        col1.pyplot(fig)
-    if advanced_data:
-        with col2:
-            fig, ax = plt.subplots(len(advanced_columns), 1)
-            for position, column in enumerate(advanced_columns):
-                ax[position].bar(player_df['year'], player_df[column], color= 'blue')
-                ax[position].bar(player_df[player_df['year'] == year]['year'], player_df[player_df['year'] == year][column], color = 'red')
-                ax[position].set_title(metric_map[column])
-                #ax[position].get_yaxis().set_visible(False)
-            fig.tight_layout()
-            col2.pyplot(fig)
-            fig, ax = plt.subplots(len(advanced_columns), 1)
-            for position, column in enumerate(advanced_columns):
-                ax[position].boxplot(player_df[column], vert=False)
-                ax[position].axvline(player_df[player_df['year'] == year][column].values[0], color='k', linestyle='dashed', linewidth=1)
-                ax[position].set_title(metric_map[column])
-                ax[position].get_yaxis().set_visible(False)
-            fig.tight_layout()
-            col2.pyplot(fig)
-    if shooting_data:
-        with col3:
-            fig, ax = plt.subplots(len(shooting_columns), 1)
-            for position, column in enumerate(shooting_columns):
-                ax[position].bar(player_df['year'], player_df[column], color= 'blue')
-                ax[position].bar(player_df[player_df['year'] == year]['year'], player_df[player_df['year'] == year][column], color = 'red')
-                ax[position].set_title(metric_map[column])
-                #ax[position].get_yaxis().set_visible(False)
-            fig.tight_layout()
-            col3.pyplot(fig)
-            fig, ax = plt.subplots(len(shooting_columns), 1)
-            for position, column in enumerate(shooting_columns):
-                ax[position].boxplot(player_df[column], vert=False)
-                ax[position].axvline(player_df[player_df['year'] == year][column].values[0], color='k', linestyle='dashed', linewidth=1)
-                ax[position].set_title(metric_map[column])
-                ax[position].get_yaxis().set_visible(False)
-            fig.tight_layout()
-            col3.pyplot(fig)
-
-st.header('Team Comparisons')
-
-with st.expander('Show team table'):
-    st.dataframe(team_df[player_columns].style.apply(highlight_col_player, player=st.session_state.player, axis=1))
-
-col1, col2, col3 = st.columns(3)
-
-position = team_df[team_df['player'] == st.session_state.player].index.values[0]
-
-with col1:
-    st.subheader('Basic Metrics')
-    for column in original_columns:
-        position = team_df[team_df['player'] == st.session_state.player].index.values[0]
-        value = team_df[column][position]
-        rank = team_df[column].rank(ascending=False).astype('int').values[position]
-        metric(metric_map[column], value, f'{rank} / {len(team_df)} Players')
-        #st.write(f'{metric_map[column]}:',team_df[column].rank(ascending=False).astype('int').values[position], f'of {len(team_df)} on team')
-    
-if advanced_data:
+        get_values(player_df, 'ts_pct', comp_type='season_comparison')
+        #get_values(annual_df, 'fg_pct', comp_type='league_comparison')
+        
     with col2:
-        st.subheader('Advanced Metrics')
-        for column in advanced_columns:
-            position = team_df[team_df['player'] == st.session_state.player].index.values[0]
-            value = team_df[column][position]
-            rank = team_df[column].rank(ascending=False).astype('int').values[position]
-            metric(metric_map[column], value, f'{rank} / {len(team_df)} Players')
-            #st.write(f'{metric_map[column]}:',team_df[column].rank(ascending=False).astype('int').values[position], f'of {len(team_df)} on team')
-
-if shooting_data:
+        get_values(player_df, 'fg3_pct', comp_type='season_comparison')
+        get_values(player_df, 'ft_pct', comp_type='season_comparison')
     with col3:
-        st.subheader('Shooting Metrics')
-        for column in shooting_columns:
-            position = team_df[team_df['player'] == st.session_state.player].index.values[0]
-            value = team_df[column][position]
-            rank = team_df[column].rank(ascending=False).astype('int').values[position]
-            metric(metric_map[column], value, f'{rank} / {len(team_df)} Players')
-            #st.write(f'{metric_map[column]}:',team_df[column].rank(ascending=False).astype('int').values[position], f'of {len(team_df)} on team')
+        get_values(player_df, 'fta_per_fga_pct', comp_type='season_comparison')
+        get_values(player_df, 'fg3a_per_fga_pct', comp_type='season_comparison')
 
-with st.expander('Show visualizations'):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        fig, ax = plt.subplots(len(original_columns), 1)
-        for position, column in enumerate(original_columns):
-            ax[position].hist(team_df[column], bins=20)
-            ax[position].axvline(team_df[team_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
-            ax[position].title.set_text(metric_map[column])
-            ax[position].get_yaxis().set_visible(False)
-        fig.tight_layout()
-        col1.pyplot(fig)
-    if advanced_data:
-        with col2:
-            fig, ax = plt.subplots(len(advanced_columns), 1)
-            for position, column in enumerate(advanced_columns):
-                ax[position].hist(team_df[column], bins=20)
-                ax[position].axvline(team_df[team_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
-                ax[position].title.set_text(metric_map[column])
-                ax[position].get_yaxis().set_visible(False)
-            fig.tight_layout()
-            col2.pyplot(fig)
-    if shooting_data:
-        with col3:
-            fig, ax = plt.subplots(len(shooting_columns), 1)
-            for position, column in enumerate(shooting_columns):
-                ax[position].hist(team_df[column], bins=20)
-                ax[position].axvline(team_df[team_df['player'] == st.session_state.player][column].values[0], color='k', linestyle='dashed', linewidth=1)
-                ax[position].title.set_text(metric_map[column])
-                ax[position].get_yaxis().set_visible(False)
-            fig.tight_layout()
-            col3.pyplot(fig)
+    # with st.expander('Show visualizations'):
+    #     col1, col2, col3 = st.columns(3)
+    #     with col1:
+    #         fig, ax = plt.subplots(len(original_columns), 1)
+    #         for position, column in enumerate(original_columns):
+    #             ax[position].bar(player_df['year'], player_df[column], color= 'blue')
+    #             ax[position].bar(player_df[player_df['year'] == year]['year'], player_df[player_df['year'] == year][column], color = 'red')
+    #             ax[position].set_title(metric_map[column])
+    #             #ax[position].get_yaxis().set_visible(False)
+    #         fig.tight_layout()
+    #         col1.pyplot(fig)
+    #         fig, ax = plt.subplots(len(original_columns), 1)
+    #         for position, column in enumerate(original_columns):
+    #             ax[position].boxplot(player_df[column], vert=False)
+    #             ax[position].axvline(player_df[player_df['year'] == year][column].values[0], color='k', linestyle='dashed', linewidth=1)
+    #             ax[position].set_title(metric_map[column])
+    #             ax[position].get_yaxis().set_visible(False)
+    #         fig.tight_layout()
+    #         col1.pyplot(fig)
+    #     if advanced_data:
+    #         with col2:
+    #             fig, ax = plt.subplots(len(advanced_columns), 1)
+    #             for position, column in enumerate(advanced_columns):
+    #                 ax[position].bar(player_df['year'], player_df[column], color= 'blue')
+    #                 ax[position].bar(player_df[player_df['year'] == year]['year'], player_df[player_df['year'] == year][column], color = 'red')
+    #                 ax[position].set_title(metric_map[column])
+    #                 #ax[position].get_yaxis().set_visible(False)
+    #             fig.tight_layout()
+    #             col2.pyplot(fig)
+    #             fig, ax = plt.subplots(len(advanced_columns), 1)
+    #             for position, column in enumerate(advanced_columns):
+    #                 ax[position].boxplot(player_df[column], vert=False)
+    #                 ax[position].axvline(player_df[player_df['year'] == year][column].values[0], color='k', linestyle='dashed', linewidth=1)
+    #                 ax[position].set_title(metric_map[column])
+    #                 ax[position].get_yaxis().set_visible(False)
+    #             fig.tight_layout()
+    #             col2.pyplot(fig)
+    #     if shooting_data:
+    #         with col3:
+    #             fig, ax = plt.subplots(len(shooting_columns), 1)
+    #             for position, column in enumerate(shooting_columns):
+    #                 ax[position].bar(player_df['year'], player_df[column], color= 'blue')
+    #                 ax[position].bar(player_df[player_df['year'] == year]['year'], player_df[player_df['year'] == year][column], color = 'red')
+    #                 ax[position].set_title(metric_map[column])
+    #                 #ax[position].get_yaxis().set_visible(False)
+    #             fig.tight_layout()
+    #             col3.pyplot(fig)
+    #             fig, ax = plt.subplots(len(shooting_columns), 1)
+    #             for position, column in enumerate(shooting_columns):
+    #                 ax[position].boxplot(player_df[column], vert=False)
+    #                 ax[position].axvline(player_df[player_df['year'] == year][column].values[0], color='k', linestyle='dashed', linewidth=1)
+    #                 ax[position].set_title(metric_map[column])
+    #                 ax[position].get_yaxis().set_visible(False)
+    #             fig.tight_layout()
+    #             col3.pyplot(fig)
 
