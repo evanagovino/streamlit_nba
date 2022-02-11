@@ -79,26 +79,28 @@ def update_from_player():
 
 #CSS
 #st.session_state.keep_player = False
+st.session_state.view = st.sidebar.selectbox('Which view?', ['Team', 'Player'])
 team = st.sidebar.selectbox('Which team?', st.session_state.team_list, key='team', on_change=update_from_team)
 year = st.sidebar.selectbox('Which year?', st.session_state.year_list, key='year', on_change=update_from_year)
 print(team, year)
 team_df = st.session_state.df[(st.session_state.df['team'] == team) & (st.session_state.df['year'] == year)].sort_values('mp', ascending=False).reset_index(drop=True)
 annual_df = st.session_state.df[(st.session_state.df['year'] == year)].sort_values('mp', ascending=False).reset_index(drop=True)
-player_list = team_df['player'].unique()
-player = st.sidebar.selectbox('Which player?', team_df['player'].unique(), on_change=update_from_player)
-st.session_state.view = st.sidebar.selectbox('Which view?', ['Team', 'Player'])
 annual_league_df = st.session_state.league_df[st.session_state.league_df['year'] == year].sort_values('win_pct', ascending=False).reset_index(drop=True)
 historical_league_df = st.session_state.league_df[st.session_state.league_df['team'] == team].sort_values('win_pct', ascending=False).reset_index(drop=True)
-#print('keep player status', st.session_state.keep_player)
-if 'player' in st.session_state:
-    pass
-    #print('Session State Player', st.session_state['player'])
-else:
-    print('No player')
-if 'player' not in st.session_state:
-    st.session_state['player'] = player
-    print('Session State Initiated', st.session_state['player'])
-player_df = st.session_state.df[(st.session_state.df['player'] == st.session_state.player)].sort_values('year', ascending=False).reset_index(drop=True)
+if st.session_state.view == 'Player':
+    player_list = team_df['player'].unique()
+    player = st.sidebar.selectbox('Which player?', team_df['player'].unique(), on_change=update_from_player)
+    #st.session_state.view = st.sidebar.selectbox('Which view?', ['Team', 'Player'])
+    #print('keep player status', st.session_state.keep_player)
+    if 'player' in st.session_state:
+        pass
+        #print('Session State Player', st.session_state['player'])
+    else:
+        print('No player')
+    if 'player' not in st.session_state:
+        st.session_state['player'] = player
+        print('Session State Initiated', st.session_state['player'])
+    player_df = st.session_state.df[(st.session_state.df['player'] == st.session_state.player)].sort_values('year', ascending=False).reset_index(drop=True)
 league_comparison = st.sidebar.checkbox('League Comparison', value=True)
 if st.session_state.view == 'Player':
     team_comparison = st.sidebar.checkbox('Team Comparison', value=True)
