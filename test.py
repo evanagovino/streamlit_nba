@@ -48,6 +48,7 @@ if 'df' not in st.session_state:
     st.session_state.league_df = pd.read_csv('league_df.csv')
     st.session_state.team_list = sorted(st.session_state.df['team'].unique())
     st.session_state.year_list = sorted(st.session_state.df['year'].unique(), reverse=True)
+    st.session_state.euc_distance = functions.EuclideanDistanceFunction(st.session_state.df)
 
 def update_from_team():
     if 'player' in st.session_state:
@@ -158,6 +159,10 @@ title_alignment = """
   text-align: center
 }
 
+#future-projection {
+  text-align: center
+}
+
 </style>
 """
 
@@ -222,4 +227,7 @@ elif st.session_state.view == 'Player':
         functions.metric_comparison(player_df, level='year', cols=['usg_pct', 'ast_pct', 'tov_pct', 'orb_pct'], year=year)
         st.subheader('Defensive Metrics')
         functions.metric_comparison(player_df, level='year', cols=['drb_pct', 'stl_pct', 'blk_pct'], year=year)
+    st.header('Future Projection')
+    st.session_state.euc_distance.plot_player_vorps(player)
+
 
